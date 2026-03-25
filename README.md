@@ -44,6 +44,11 @@ The homepage now includes interactive:
 - reward distribution chart
 - sorting-network visual preview
 - Maximum Independent Set node-selection playground
+- live user-customizable simulation controls:
+  - temperature, trajectory depth, and reward sharpness
+  - terminal object count
+  - sorting wire/layer counts
+  - MIS node count and edge density
 
 ## GitHub Pages
 
