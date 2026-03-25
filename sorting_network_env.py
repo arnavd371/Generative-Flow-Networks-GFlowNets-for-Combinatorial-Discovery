@@ -48,10 +48,10 @@ class SortingNetworkDAGEnv:
             (1 << i) | (1 << j) for i, j in self.comparators
         ]
 
-        self.layer_masks: List[int] = []
-        self.layer_wire_usage: List[int] = []
-        self.halted = False
-        self.num_comparators = 0
+        self.layer_masks: List[int]
+        self.layer_wire_usage: List[int]
+        self.halted: bool
+        self.num_comparators: int
         self.reset()
 
     def reset(self) -> SortingNetworkState:
@@ -75,10 +75,20 @@ class SortingNetworkDAGEnv:
         comp_idx = action % self.num_comparator_types
         return layer, comp_idx
 
+    def _recompute_layer_wire_usage(self, layer: int) -> None:
+        layer_mask = self.layer_masks[layer]
+        used_wires = 0
+        while layer_mask:
+            lsb = layer_mask & -layer_mask
+            comp_idx = lsb.bit_length() - 1
+            used_wires |= self._comparator_wire_masks[comp_idx]
+            layer_mask ^= lsb
+        self.layer_wire_usage[layer] = used_wires
+
     def get_mask(self) -> List[bool]:
         """
         Forward legal-action mask (length = action_dim).
-        Invalid actions are False and must be masked before log_softmax.
+        `True` means action is legal; `False` means action is illegal.
         """
 
         mask = [False] * self.action_dim
@@ -108,6 +118,7 @@ class SortingNetworkDAGEnv:
     def get_backward_mask(self) -> List[bool]:
         """
         Backward legal-action mask over the same action space.
+        `True` means action is legal; `False` means action is illegal.
         - If halted, only STOP is legal (to unhalt).
         - Otherwise, only present comparators can be removed.
         """
@@ -132,6 +143,7 @@ class SortingNetworkDAGEnv:
         return mask
 
     def step(self, action: int) -> Tuple[SortingNetworkState, float, bool, Dict[str, object]]:
+        """Apply one forward action and return (state, reward, done, info)."""
         if self.halted:
             raise RuntimeError("Cannot call step() from a terminal state; call reset().")
 
@@ -141,7 +153,7 @@ class SortingNetworkDAGEnv:
 
         if action == self.stop_action:
             self.halted = True
-            return self.get_state(), 0.0, True, {"terminal": True, "action": "STOP"}
+            return self.get_state(), 0.0, True, {"action": "STOP"}
 
         layer, comp_idx = self._decode_action(action)
         bit = 1 << comp_idx
@@ -152,23 +164,24 @@ class SortingNetworkDAGEnv:
         done = self.num_comparators >= self.max_comparators
         if done:
             self.halted = True
-        return self.get_state(), 0.0, done, {"terminal": done, "action": (layer, self.comparators[comp_idx])}
+        return self.get_state(), 0.0, done, {"action": (layer, self.comparators[comp_idx])}
 
     def backward_step(
         self, action: int
     ) -> Tuple[SortingNetworkState, float, bool, Dict[str, object]]:
+        """Reverse one legal action and return (state, reward, done, info)."""
         mask = self.get_backward_mask()
         if action < 0 or action >= self.action_dim or not mask[action]:
             raise ValueError("Invalid backward action for current state")
 
         if action == self.stop_action:
             self.halted = False
-            return self.get_state(), 0.0, False, {"terminal": False, "action": "UNSTOP"}
+            return self.get_state(), 0.0, False, {"action": "UNSTOP"}
 
         layer, comp_idx = self._decode_action(action)
         bit = 1 << comp_idx
-        self.layer_masks[layer] ^= bit
-        self.layer_wire_usage[layer] ^= self._comparator_wire_masks[comp_idx]
+        self.layer_masks[layer] &= ~bit
+        self._recompute_layer_wire_usage(layer)
         self.num_comparators -= 1
         self.halted = False
-        return self.get_state(), 0.0, False, {"terminal": False, "action": (layer, self.comparators[comp_idx])}
+        return self.get_state(), 0.0, False, {"action": (layer, self.comparators[comp_idx])}
