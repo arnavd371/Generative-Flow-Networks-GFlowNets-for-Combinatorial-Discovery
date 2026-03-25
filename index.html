@@ -197,18 +197,18 @@
 
         <div class="controls">
           <div class="control">
-            <label for="temperature">Sampling temperature</label>
-            <input id="temperature" type="range" min="20" max="220" value="100" />
+            <label id="temperatureLabel" for="temperature">Sampling temperature</label>
+            <input id="temperature" aria-labelledby="temperatureLabel" type="range" min="20" max="220" value="100" />
             <output id="temperatureOut">1.00</output>
           </div>
           <div class="control">
-            <label for="steps">Trajectory depth</label>
-            <input id="steps" type="range" min="2" max="9" value="5" />
+            <label id="stepsLabel" for="steps">Trajectory depth</label>
+            <input id="steps" aria-labelledby="stepsLabel" type="range" min="2" max="9" value="5" />
             <output id="stepsOut">5</output>
           </div>
           <div class="control">
-            <label for="rewardBias">Reward sharpness</label>
-            <input id="rewardBias" type="range" min="60" max="240" value="140" />
+            <label id="rewardBiasLabel" for="rewardBias">Reward sharpness</label>
+            <input id="rewardBias" aria-labelledby="rewardBiasLabel" type="range" min="60" max="240" value="140" />
             <output id="rewardBiasOut">1.40</output>
           </div>
           <div class="control">
@@ -363,7 +363,7 @@
         const levels = state.steps;
         const levelSpacing = 730 / Math.max(levels - 1, 1);
         const rootY = 165;
-        let html = `<defs>
+        let html = `<title>Interactive GFlowNet flow DAG visualization</title><defs>
           <marker id="arrowBlue" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#5da8ff"/></marker>
           <marker id="arrowRed" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#ff5f7d"/></marker>
         </defs>`;
@@ -411,7 +411,7 @@
         const max = Math.max(...values, 1);
         const w = 88;
         const gap = 15;
-        let html = "";
+        let html = "<title>Terminal reward distribution chart</title>";
         values.forEach((v, i) => {
           const x = 45 + i * (w + gap);
           const h = (v / max) * 150;
@@ -432,7 +432,7 @@
         const y0 = 28;
         const layerStep = 470 / Math.max(layers, 1);
         const wireStep = 190 / Math.max(wires - 1, 1);
-        let html = "";
+        let html = "<title>Sorting network comparator placement preview</title>";
         for (let w = 0; w < wires; w++) {
           const y = y0 + w * wireStep;
           html += `<line x1="${x0}" y1="${y}" x2="500" y2="${y}" stroke="#3d537f" stroke-width="1.4"></line>`;
@@ -455,7 +455,7 @@
       function drawMisGraph() {
         const svg = ids("misSvg");
         const { nodes, edges } = state.graph;
-        let html = "";
+        let html = "<title>Maximum independent set interactive graph</title>";
         for (const [a, b] of edges) {
           const na = nodes[a];
           const nb = nodes[b];
