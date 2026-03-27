@@ -18,6 +18,8 @@ from tb_loss import trajectory_balance_loss, uniform_backward_log_prob
 Env = Union[MISDAGEnv, SortingNetworkDAGEnv]
 State = Union[MISState, SortingNetworkState]
 
+MASKED_LOGIT_VALUE = -1e9
+
 
 @dataclass
 class Trajectory:
@@ -35,13 +37,13 @@ def set_seed(seed: int) -> None:
 
 
 def build_mis_env(num_nodes: int, edge_prob: float, rng: random.Random) -> MISDAGEnv:
-    adjacency: Dict[int, List[int]] = {node: [] for node in range(num_nodes)}
+    adjacency_lists: Dict[int, List[int]] = {node: [] for node in range(num_nodes)}
     for i in range(num_nodes):
         for j in range(i + 1, num_nodes):
             if rng.random() < edge_prob:
-                adjacency[i].append(j)
-                adjacency[j].append(i)
-    return MISDAGEnv(adjacency)
+                adjacency_lists[i].append(j)
+                adjacency_lists[j].append(i)
+    return MISDAGEnv(adjacency_lists)
 
 
 def compute_reward(env: Env, state: State, reward_sharpness: float) -> float:
@@ -64,7 +66,7 @@ def compute_flow_value(
         return float(terminal_reward or 0.0)
     state_tensor = encode_state(env, state, device=agent.device)
     logits = agent.model(state_tensor)
-    masked_logits = logits.masked_fill(~mask_tensor, -1e9)
+    masked_logits = logits.masked_fill(~mask_tensor, MASKED_LOGIT_VALUE)
     log_flow = torch.logsumexp(masked_logits, dim=-1)
     return float(torch.exp(log_flow).item())
 
@@ -207,7 +209,7 @@ def train(args: argparse.Namespace) -> None:
 
     for epoch in range(1, args.epochs + 1):
         model.train()
-        losses: List[torch.Tensor] = []
+        loss_total = torch.zeros((), device=model.log_z.device)
         for _ in range(args.batch_size):
             traj = collect_trajectory(
                 env,
@@ -218,9 +220,9 @@ def train(args: argparse.Namespace) -> None:
             loss = trajectory_balance_loss(
                 model.log_z, traj.forward_log_probs, traj.backward_log_probs, traj.reward
             )
-            losses.append(loss)
+            loss_total = loss_total + loss
 
-        batch_loss = torch.stack(losses).mean()
+        batch_loss = loss_total / float(args.batch_size)
         optimizer.zero_grad()
         batch_loss.backward()
         optimizer.step()

@@ -16,7 +16,7 @@ def uniform_backward_log_prob(mask: torch.Tensor, eps: float = 1e-12) -> torch.T
 def _sum_log_probs(log_probs: Sequence[torch.Tensor], device: torch.device) -> torch.Tensor:
     if not log_probs:
         return torch.tensor(0.0, device=device)
-    return torch.stack(list(log_probs)).sum()
+    return torch.stack(log_probs).sum()
 
 
 def trajectory_balance_loss(

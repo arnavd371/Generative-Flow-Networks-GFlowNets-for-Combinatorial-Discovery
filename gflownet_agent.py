@@ -12,6 +12,8 @@ from sorting_network_env import SortingNetworkDAGEnv, SortingNetworkState
 Env = Union[MISDAGEnv, SortingNetworkDAGEnv]
 State = Union[MISState, SortingNetworkState]
 
+MASKED_LOGIT_VALUE = -1e9
+
 
 def infer_state_dim(env: Env) -> int:
     """Infer the flattened state dimension for the provided environment."""
@@ -110,7 +112,7 @@ class GFlowNetAgent:
         return torch.tensor(mask, dtype=torch.bool, device=self.device)
 
     def _masked_logits(self, logits: torch.Tensor, mask_tensor: torch.Tensor) -> torch.Tensor:
-        return logits.masked_fill(~mask_tensor, -1e9)
+        return logits.masked_fill(~mask_tensor, MASKED_LOGIT_VALUE)
 
     def compute_log_probs(
         self, env: Env, state: State, mask: Sequence[bool]
