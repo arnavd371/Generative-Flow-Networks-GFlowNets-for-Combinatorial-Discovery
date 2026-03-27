@@ -1,36 +1,153 @@
 # Generative Flow Networks for Combinatorial Discovery
 
-Interactive research-style website for GFlowNets on discrete combinatorial search.
+Research-oriented codebase for training Generative Flow Networks (GFlowNets) on
+combinatorial DAG environments and visualizing learned flow distributions in a
+browser.
 
-## Milestone 1 (Sorting Networks Environment)
+## Repository layout
 
-The repository now includes a Gym-like DAG environment implementation at:
+```
+├── gflownet_agent.py       # State encoding + policy model + sampling
+├── tb_loss.py              # Trajectory Balance loss
+├── train.py                # Training loop + results.json export
+├── mis_env.py              # Maximum Independent Set (DAG environment)
+├── sorting_network_env.py  # Sorting Network (DAG environment)
+├── index.html              # Visualization dashboard
+└── README.md               # This document
+```
 
-- `sorting_network_env.py`
+## System architecture
 
-It provides:
+### High-level components
 
-- `reset()`
-- `step(action)` (forward transition)
-- `backward_step(action)` (reverse transition)
-- `get_mask()` and `get_backward_mask()` for legal-action masking
+```
+┌────────────────────────────┐   trajectories   ┌────────────────────────────┐
+│  DAG Environments           │ ─────────────▶  │   GFlowNet Agent            │
+│  (mis_env, sorting_env)     │                 │   (gflownet_agent.py)       │
+│  - reset / step / masks     │ ◀─────────────  │   - encode_state            │
+└────────────────────────────┘   actions       │   - MLP policy + log Z       │
+                                               └──────────────┬──────────────┘
+                                                              │ TB loss
+                                                              ▼
+                                               ┌────────────────────────────┐
+                                               │ Training Loop (train.py)   │
+                                               │ - collect trajectories      │
+                                               │ - optimize with AdamW       │
+                                               │ - export results.json       │
+                                               └────────────────────────────┘
+```
 
-## Milestone 2 (Maximum Independent Set Environment)
+### Training pipeline (Trajectory Balance)
 
-The repository now includes a Gym-like DAG environment implementation at:
+```
+state s_t
+  │ encode_state()
+  ▼
+policy logits (GFlowNetModel)
+  │ mask invalid actions
+  ▼
+P_F(a_t | s_t) ── sample action ──▶ env.step(a_t)
+  │                                 │
+  │                                 ▼
+  │                           next state s_{t+1}
+  │                                 │
+  └────────────── log P_B(a_t | s_{t+1}) (uniform) ─────────────┘
 
-- `mis_env.py`
+terminal reward R(s_T)
+  │
+  ▼
+L_TB(τ) = (log Z + Σ log P_F - log R - Σ log P_B)²
+```
 
-It provides:
+## Environment layer
 
-- `reset()`
-- `step(action)` (forward transition)
-- `backward_step(action)` (reverse transition)
-- `get_mask()` and `get_backward_mask()` for legal-action masking
+Both environments expose the same Gym-like API:
 
-## View locally
+```python
+state = env.reset()
+next_state, reward, done, info = env.step(action)
+prev_state, _, _, _ = env.backward_step(action)
+mask = env.get_mask()              # legal forward actions
+backward_mask = env.get_backward_mask()  # legal backward actions
+```
 
-Open `index.html` directly, or run:
+### Maximum Independent Set (MIS)
+
+- **File:** `mis_env.py`
+- **State:** `MISState(selected_mask, forbidden_mask, halted, set_size)`
+- **Action space:** `num_nodes + 1` (node index + STOP)
+- **Constraint handling:** legal actions exclude selected or forbidden nodes.
+
+### Sorting Network
+
+- **File:** `sorting_network_env.py`
+- **State:** `SortingNetworkState(layer_masks, halted, num_comparators)`
+- **Action space:** `max_layers × num_comparator_types + 1` (layer/comparator + STOP)
+- **Constraint handling:** per-layer wire usage masks prevent overlapping comparators.
+
+## GFlowNet agent
+
+### State encoding
+
+The agent flattens environment state into a fixed-length tensor:
+
+- **MIS:** `[selected_bits, forbidden_bits, is_halted, set_size_norm]`
+- **Sorting:** `[layer_bits..., is_halted, num_comparators_norm]`
+
+See `encode_state()` in `gflownet_agent.py`.
+
+### Policy model
+
+`GFlowNetModel` is a configurable MLP that outputs forward logits for every
+legal action and includes a learnable scalar `log_z` for normalization.
+
+### Exploration
+
+`GFlowNetAgent` supports:
+
+- **Temperature scaling** for softer action distributions
+- **Epsilon-greedy** sampling for random exploration
+
+## Training loop
+
+`train.py` runs episodic training using Trajectory Balance (TB) loss:
+
+1. Roll out trajectories using the agent and environment masks.
+2. Compute rewards at terminal states.
+3. Apply TB loss:
+
+```
+L_TB(τ) = (log Z + Σ log P_F - log R - Σ log P_B)²
+```
+
+4. Update parameters using AdamW.
+5. Periodically export `results.json` for visualization.
+
+### Results JSON schema
+
+The training loop exports a JSON file (no synthetic data is generated by this
+README) with the following structure:
+
+```json
+{
+  "temperature": "float",
+  "reward_sharpness": "float",
+  "nodes": [
+    {"id": "string", "label": "string", "terminal": "bool"}
+  ],
+  "edges": [
+    {"source": "string", "target": "string", "action": "int"}
+  ],
+  "flow_values": {"node_id": "float"},
+  "rewards": ["float"]
+}
+```
+
+## Running locally
+
+### Visualization dashboard
+
+Open `index.html` directly or serve it with:
 
 ```bash
 python -m http.server 8000
@@ -38,17 +155,23 @@ python -m http.server 8000
 
 Then visit `http://localhost:8000`.
 
-The homepage now includes interactive:
+### Training (examples)
 
-- flow DAG visualization
-- reward distribution chart
-- sorting-network visual preview
-- Maximum Independent Set node-selection playground
-- live user-customizable simulation controls:
-  - temperature, trajectory depth, and reward sharpness
-  - terminal object count
-  - sorting wire/layer counts
-  - MIS node count and edge density
+```bash
+# MIS training
+python train.py --env mis --epochs 200 --num-nodes 8 --edge-prob 0.25
+
+# Sorting network training
+python train.py --env sorting --epochs 200 --n-wires 6 --max-layers 5 --max-comparators 12
+```
+
+### Optional sanity check
+
+There is no formal test suite. You can run a quick syntax check with:
+
+```bash
+python -m py_compile gflownet_agent.py tb_loss.py train.py
+```
 
 ## GitHub Pages
 
@@ -57,6 +180,5 @@ This repository deploys via GitHub Actions to:
 `https://arnavd371.github.io/Generative-Flow-Networks-GFlowNets-for-Combinatorial-Discovery/`
 
 If the URL is not live yet, enable GitHub Pages in repository settings and set
-source to **GitHub Actions**.
-
-On merge to `main`, the Pages workflow deploys the updated site automatically.
+source to **GitHub Actions**. On merge to `main`, the Pages workflow deploys the
+updated site automatically.
