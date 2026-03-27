@@ -24,8 +24,6 @@ from tb_loss import trajectory_balance_loss, uniform_backward_log_prob
 Env = Union[MISDAGEnv, SortingNetworkDAGEnv]
 State = Union[MISState, SortingNetworkState]
 
-
-
 @dataclass
 class Trajectory:
     states: List[State]
@@ -212,7 +210,7 @@ def train(args: argparse.Namespace) -> None:
     agent = GFlowNetAgent(model, temperature=args.temperature, epsilon=args.epsilon)
     optimizer = AdamW(model.parameters(), lr=args.lr)
 
-    loss_total = torch.zeros((), device=model.log_z.device)
+    loss_total = torch.zeros((), device=agent.device)
 
     for epoch in range(1, args.epochs + 1):
         model.train()

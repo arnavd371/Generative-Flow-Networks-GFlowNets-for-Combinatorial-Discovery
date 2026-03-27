@@ -27,7 +27,11 @@ def trajectory_balance_loss(
     eps: float = 1e-12,
 ) -> torch.Tensor:
     """Compute the Trajectory Balance loss for a single trajectory."""
-    reward_tensor = reward if isinstance(reward, torch.Tensor) else torch.tensor(reward)
+    reward_tensor = (
+        reward
+        if isinstance(reward, torch.Tensor)
+        else torch.tensor(reward, dtype=torch.float32)
+    )
     reward_tensor = reward_tensor.to(log_z.device)
     log_reward = torch.log(reward_tensor.clamp(min=eps))
 
