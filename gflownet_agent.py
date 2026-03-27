@@ -99,9 +99,9 @@ class GFlowNetAgent:
         device: torch.device | None = None,
     ) -> None:
         if temperature <= 0:
-            raise ValueError("temperature must be positive")
+            raise ValueError(f"temperature must be positive, got {temperature}")
         if not 0.0 <= epsilon <= 1.0:
-            raise ValueError("epsilon must be within [0, 1]")
+            raise ValueError(f"epsilon must be within [0, 1], got {epsilon}")
 
         self.model = model
         self.temperature = float(temperature)

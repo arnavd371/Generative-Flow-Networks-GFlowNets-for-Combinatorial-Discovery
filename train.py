@@ -10,7 +10,13 @@ from typing import Dict, List, Sequence, Union
 import torch
 from torch.optim import AdamW
 
-from gflownet_agent import GFlowNetAgent, GFlowNetModel, encode_state, infer_state_dim
+from gflownet_agent import (
+    MASKED_LOGIT_VALUE,
+    GFlowNetAgent,
+    GFlowNetModel,
+    encode_state,
+    infer_state_dim,
+)
 from mis_env import MISDAGEnv, MISState
 from sorting_network_env import SortingNetworkDAGEnv, SortingNetworkState
 from tb_loss import trajectory_balance_loss, uniform_backward_log_prob
@@ -18,7 +24,6 @@ from tb_loss import trajectory_balance_loss, uniform_backward_log_prob
 Env = Union[MISDAGEnv, SortingNetworkDAGEnv]
 State = Union[MISState, SortingNetworkState]
 
-MASKED_LOGIT_VALUE = -1e9
 
 
 @dataclass
@@ -63,7 +68,7 @@ def compute_flow_value(
 ) -> float:
     mask_tensor = torch.tensor(mask, dtype=torch.bool, device=agent.device)
     if mask_tensor.sum().item() == 0:
-        return float(terminal_reward or 0.0)
+        return float(terminal_reward if terminal_reward is not None else 0.0)
     state_tensor = encode_state(env, state, device=agent.device)
     logits = agent.model(state_tensor)
     masked_logits = logits.masked_fill(~mask_tensor, MASKED_LOGIT_VALUE)
@@ -207,9 +212,11 @@ def train(args: argparse.Namespace) -> None:
     agent = GFlowNetAgent(model, temperature=args.temperature, epsilon=args.epsilon)
     optimizer = AdamW(model.parameters(), lr=args.lr)
 
+    loss_total = torch.zeros((), device=model.log_z.device)
+
     for epoch in range(1, args.epochs + 1):
         model.train()
-        loss_total = torch.zeros((), device=model.log_z.device)
+        loss_total.zero_()
         for _ in range(args.batch_size):
             traj = collect_trajectory(
                 env,
