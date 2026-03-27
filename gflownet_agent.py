@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import List, Sequence, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import torch
 from torch import nn
@@ -28,7 +28,9 @@ def _bitmask_to_list(mask: int, length: int) -> List[float]:
     return [1.0 if mask & (1 << idx) else 0.0 for idx in range(length)]
 
 
-def encode_state(env: Env, state: State, device: torch.device | None = None) -> torch.Tensor:
+def encode_state(
+    env: Env, state: State, device: Optional[torch.device] = None
+) -> torch.Tensor:
     """Encode an environment state into a flat float tensor."""
     if isinstance(env, MISDAGEnv) and isinstance(state, MISState):
         selected = _bitmask_to_list(state.selected_mask, env.num_nodes)
@@ -96,7 +98,7 @@ class GFlowNetAgent:
         model: GFlowNetModel,
         temperature: float = 1.0,
         epsilon: float = 0.0,
-        device: torch.device | None = None,
+        device: Optional[torch.device] = None,
     ) -> None:
         if temperature <= 0:
             raise ValueError(f"temperature must be positive, got {temperature}")

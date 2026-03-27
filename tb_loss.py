@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Sequence, Union
 
 import torch
 
@@ -23,7 +23,7 @@ def trajectory_balance_loss(
     log_z: torch.Tensor,
     forward_log_probs: Sequence[torch.Tensor],
     backward_log_probs: Sequence[torch.Tensor],
-    reward: torch.Tensor | float,
+    reward: Union[torch.Tensor, float],
     eps: float = 1e-12,
 ) -> torch.Tensor:
     """Compute the Trajectory Balance loss for a single trajectory."""

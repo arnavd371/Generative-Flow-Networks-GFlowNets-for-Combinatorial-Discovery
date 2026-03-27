@@ -5,7 +5,7 @@ import json
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Sequence, Union
+from typing import Dict, List, Optional, Sequence, Union
 
 import torch
 from torch.optim import AdamW
@@ -64,7 +64,7 @@ def compute_flow_value(
     env: Env,
     state: State,
     mask: Sequence[bool],
-    terminal_reward: float | None = None,
+    terminal_reward: Optional[float] = None,
 ) -> float:
     mask_tensor = torch.tensor(mask, dtype=torch.bool, device=agent.device)
     if mask_tensor.sum().item() == 0:
@@ -80,7 +80,7 @@ def collect_trajectory(
     env: Env,
     agent: GFlowNetAgent,
     reward_sharpness: float,
-    max_steps: int | None = None,
+    max_steps: Optional[int] = None,
     record_flow_values: bool = False,
 ) -> Trajectory:
     state = env.reset()
