@@ -193,7 +193,10 @@ def export_results(
         "flow_values": flow_values,
         "rewards": rewards,
     }
-    path.write_text(json.dumps(payload, indent=2))
+    try:
+        path.write_text(json.dumps(payload, indent=2))
+    except OSError as exc:
+        raise RuntimeError(f"Failed to write results JSON to {path}") from exc
 
 
 def train(args: argparse.Namespace) -> None:
