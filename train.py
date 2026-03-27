@@ -5,7 +5,7 @@ import json
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Sequence
+from typing import Dict, List, Sequence, Union
 
 import torch
 from torch.optim import AdamW
@@ -15,8 +15,8 @@ from mis_env import MISDAGEnv, MISState
 from sorting_network_env import SortingNetworkDAGEnv, SortingNetworkState
 from tb_loss import trajectory_balance_loss, uniform_backward_log_prob
 
-Env = MISDAGEnv | SortingNetworkDAGEnv
-State = MISState | SortingNetworkState
+Env = Union[MISDAGEnv, SortingNetworkDAGEnv]
+State = Union[MISState, SortingNetworkState]
 
 
 @dataclass
@@ -113,7 +113,7 @@ def collect_trajectory(
         if record_flow_values:
             next_mask = env.get_mask()
             if done:
-                flow_values.append(None)
+                flow_values.append(0.0)
             else:
                 flow_values.append(compute_flow_value(agent, env, next_state, next_mask))
 

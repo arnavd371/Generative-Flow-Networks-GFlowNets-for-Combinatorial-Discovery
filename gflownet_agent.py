@@ -110,8 +110,7 @@ class GFlowNetAgent:
         return torch.tensor(mask, dtype=torch.bool, device=self.device)
 
     def _masked_logits(self, logits: torch.Tensor, mask_tensor: torch.Tensor) -> torch.Tensor:
-        neg_inf = torch.tensor(-1e9, device=logits.device, dtype=logits.dtype)
-        return logits.masked_fill(~mask_tensor, neg_inf)
+        return logits.masked_fill(~mask_tensor, -1e9)
 
     def compute_log_probs(
         self, env: Env, state: State, mask: Sequence[bool]
